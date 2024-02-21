@@ -6,6 +6,8 @@ from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 
 
+time_fmt = "%Y-%m-%dT%H:%M:%S.%f"
+
 Base = declarative_base()
 
 
@@ -18,21 +20,17 @@ class BaseModel:
 
     def __init__(self, *args, **kwargs):
         """Instatntiates a new model"""
-        if not kwargs or ("updated_at" not in kwargs and
-                          "created_at" not in kwargs):
-            from models import storage
-            self.id = str(uuid.uuid4())
-            self.created_at = datetime.now()
-            self.updated_at = datetime.now()
-            pass
-        else:
-            kwargs['updated_at'] = datetime.strptime(kwargs['updated_at'],
-                                                     '%Y-%m-%dT%H:%M:%S.%f')
-            kwargs['created_at'] = datetime.strptime(kwargs['created_at'],
-                                                     '%Y-%m-%dT%H:%M:%S.%f')
-            del kwargs['__class__']
-
-            self.__dict__.update(kwargs)
+        self.id = str(uuid.uuid4())
+        self.created_at = datetime.now()
+        self.updated_at = self.created_at
+        for key, value in kwargs.items():
+            if key == '__class__':
+                continue
+            setattr(self, key, value)
+            if type(self.created_at) is str:
+                self.created_at = datetime.strptime(self.created_at, time_fmt)
+            if type(self.updated_at) is str:
+                self.updated_at = datetime.strptime(self.updated_at, time_fmt)
 
     def __str__(self):
         """Returns a string representation of the instance"""
@@ -55,6 +53,11 @@ class BaseModel:
         """Convert instance into dict format"""
         dictionary = {}
         dictionary.update(self.__dict__)
+
+        # remove the key if it exists
+        if (dictionary.get("_sa_instance_state")):
+            dictionary.pop("_sa_instance_state")
+
         dictionary.update({'__class__':
                           (str(type(self)).split('.')[-1]).split('\'')[0]})
         dictionary['created_at'] = self.created_at.isoformat()
